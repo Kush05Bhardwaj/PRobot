@@ -29,3 +29,10 @@ def get_pr_diff(repo_name, pr_number):
             diff_text += file.patch
 
     return diff_text
+
+def post_pr_comment(repo_name, pr_number, review_text):
+
+    repo = g.get_repo(repo_name)
+    pr = repo.get_pull(pr_number)
+
+    pr.create_issue_comment(review_text)

@@ -19,12 +19,13 @@ def get_pr_diff(repo_name, pr_number):
 
     files = pr.get_files()
 
-    diff_data = []
+    diff_text = ""
 
     for file in files:
-        diff_data.append({
-            "filename": file.filename,
-            "patch": file.patch
-        })
 
-    return diff_data
+        diff_text += f"\nFile: {file.filename}\n"
+
+        if file.patch:
+            diff_text += file.patch
+
+    return diff_text

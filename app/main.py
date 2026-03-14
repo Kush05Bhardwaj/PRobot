@@ -22,4 +22,4 @@ async def github_webhook(request: Request):
 
     post_pr_comment(repo_name, pr_number, review)
 
-    return {"message": "Review generated"}
+    return {"message": "Review posted"}

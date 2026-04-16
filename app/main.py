@@ -31,14 +31,13 @@ def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
 async def github_webhook(request: Request):
     raw_body = await request.body()
     signature = request.headers.get("X-Hub-Signature-256", "")
-    
-    if not verify_signature(raw_body, signature, WEBHOOK_SECRET):
+    if not verify_signature(raw_body, signature, os.getenv("WEBHOOK_SECRET", "")):
         raise HTTPException(status_code=403, detail="Invalid webhook signature")
-    
+
     payload = json.loads(raw_body)
 
-    if payload.get("action") != "opened":
-        return {"message": "Ignored"}
+    if payload.get("action") not in ("opened", "synchronize"):
+        return {"status": "ignored"}
 
     repo_name = payload["repository"]["full_name"]
     pr_number = payload["pull_request"]["number"]

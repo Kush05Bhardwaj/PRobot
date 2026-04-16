@@ -18,8 +18,13 @@ def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
     return hmac.compare_digest(expected, signature)
 
 async def github_webhook(request: Request):
-
-    payload = await request.json()
+    raw_body = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256", "")
+    
+    if not verify_signature(raw_body, signature, WEBHOOK_SECRET):
+        raise HTTPException(status_code=403, detail="Invalid webhook signature")
+    
+    payload = json.loads(raw_body)
 
     if payload.get("action") != "opened":
         return {"message": "Ignored"}

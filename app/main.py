@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+seen_pr_ids = set()
 
 @app.post("/webhook")
 
@@ -20,11 +21,18 @@ async def github_webhook(request: Request):
 
     payload = await request.json()
 
-    if payload["action"] != "opened":
+    if payload.get("action") != "opened":
         return {"message": "Ignored"}
 
     repo_name = payload["repository"]["full_name"]
     pr_number = payload["pull_request"]["number"]
+    
+    pr_id = f"{repo_name}#{pr_number}"
+    if pr_id in seen_pr_ids:
+        logger.info(f"Skipping already processed PR {pr_id}")
+        return {"message": "Already processed"}
+        
+    seen_pr_ids.add(pr_id)
     
     logger.info(f"Received PR opened event for {repo_name}#{pr_number}")
 

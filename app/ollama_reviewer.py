@@ -22,7 +22,8 @@ def review_code(diff):
                 "model": OLLAMA_MODEL,
                 "prompt": prompt,
                 "stream": False
-            }
+            },
+            timeout=120
         )
         response.raise_for_status()
         

@@ -30,6 +30,10 @@ def get_pr_diff(repo_name, pr_number):
             if file.patch:
                 diff_text += file.patch
 
+        if len(diff_text) > 12000:
+            logger.warning(f"Diff size exceeds 12,000 characters for PR #{pr_number}, truncating...")
+            diff_text = diff_text[:12000] + "\n\n...[DIFF TRUNCATED TO 12,000 CHARACTERS DUE TO CONTEXT LIMIT]..."
+
         logger.info(f"Fetched diff for PR #{pr_number}, size: {len(diff_text)} bytes")
         return diff_text
     except Exception as e:

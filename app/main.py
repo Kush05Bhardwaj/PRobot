@@ -3,13 +3,24 @@ from app.github_handler import get_pr_diff, post_pr_comment
 from app.ollama_reviewer import review_code
 import hmac, hashlib
 import logging
+import sqlite3
+import json
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+
 app = FastAPI()
 
-seen_pr_ids = set()
+DB_FILE = "seen_prs.db"
+
+def init_db():
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS seen (pr_id TEXT PRIMARY KEY)")
+
+init_db()
 
 @app.post("/webhook")
 
@@ -33,11 +44,17 @@ async def github_webhook(request: Request):
     pr_number = payload["pull_request"]["number"]
     
     pr_id = f"{repo_name}#{pr_number}"
-    if pr_id in seen_pr_ids:
+    
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.execute("SELECT 1 FROM seen WHERE pr_id = ?", (pr_id,))
+        already_seen = cursor.fetchone() is not None
+        
+    if already_seen:
         logger.info(f"Skipping already processed PR {pr_id}")
         return {"message": "Already processed"}
         
-    seen_pr_ids.add(pr_id)
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute("INSERT OR IGNORE INTO seen VALUES (?)", (pr_id,))
     
     logger.info(f"Received PR opened event for {repo_name}#{pr_number}")
 

@@ -20,6 +20,14 @@ def init_db():
     with sqlite3.connect(DB_FILE) as conn:
         conn.execute("CREATE TABLE IF NOT EXISTS seen (pr_id TEXT PRIMARY KEY)")
 
+def is_seen(pr_id: str) -> bool:
+    with sqlite3.connect(DB_FILE) as conn:
+        return conn.execute("SELECT 1 FROM seen WHERE pr_id = ?", (pr_id,)).fetchone() is not None
+
+def mark_seen(pr_id: str):
+    with sqlite3.connect(DB_FILE) as conn:
+        conn.execute("INSERT OR IGNORE INTO seen VALUES (?)", (pr_id,))
+
 init_db()
 
 @app.post("/webhook")
@@ -41,21 +49,20 @@ async def github_webhook(request: Request):
 
     repo_name = payload["repository"]["full_name"]
     pr_number = payload["pull_request"]["number"]
+    action = payload.get("action")
     
-    pr_id = f"{repo_name}#{pr_number}"
+    # If it's a new commit (synchronize), we want a unique ID so we don't skip it
+    # We can append the incoming commit SHA to bypass the dedup check
+    commit_sha = payload.get("after", "") if action == "synchronize" else ""
+    pr_id = f"{repo_name}#{pr_number}" + (f"#{commit_sha}" if commit_sha else "")
     
-    with sqlite3.connect(DB_FILE) as conn:
-        cursor = conn.execute("SELECT 1 FROM seen WHERE pr_id = ?", (pr_id,))
-        already_seen = cursor.fetchone() is not None
-        
-    if already_seen:
+    if is_seen(pr_id):
         logger.info(f"Skipping already processed PR {pr_id}")
         return {"message": "Already processed"}
         
-    with sqlite3.connect(DB_FILE) as conn:
-        conn.execute("INSERT OR IGNORE INTO seen VALUES (?)", (pr_id,))
+    mark_seen(pr_id)
     
-    logger.info(f"Received PR opened event for {repo_name}#{pr_number}")
+    logger.info(f"Received PR {payload.get('action')} event for {repo_name}#{pr_number}")
 
     try:
         diff = get_pr_diff(repo_name, pr_number)
